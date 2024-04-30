@@ -61,10 +61,10 @@ class ValueWidget(Widget, Generic[T]):
 
         print(f'value widget self.value: {self.value}')
 
-        label_min_height = 20
-        label_min_width = 20
-        label_max_height = 20
-        label_max_width = 20
+        label_min_height = 30
+        label_min_width = 100
+        label_max_height = 1000
+        label_max_width = 1000
         for key, value in base_widget_kwargs.items():
             if key == 'label_min_width':
                 label_min_width = value
