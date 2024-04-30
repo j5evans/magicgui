@@ -35,6 +35,9 @@ if TYPE_CHECKING:
         parent: Any
         backend_kwargs: dict | None
 
+        label_max_height: int | None
+        label_min_height: int | None
+
         description: str  # alias for label
 
 
@@ -95,6 +98,12 @@ class Widget:
         gui_only: bool = False,
         parent: Any | None = None,
         backend_kwargs: dict | None = None,
+
+        label_min_height: int | None = None,
+        label_min_width: int | None = None,
+        label_max_width: int | None = None,
+        label_max_height: int | None = None,
+
         **extra: Any,  # not really used
     ):
         # for ipywidgets API compatibility
@@ -139,7 +148,13 @@ class Widget:
 
         self.name: str = name
         self.param_kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+
+        self.label_min_height = label_min_height
+        self.label_min_width = label_min_width
+        self.label_max_height = label_max_height
+        self.label_max_width = label_max_width
         self._label = label
+
         self.tooltip = tooltip
         self.enabled = enabled
         self.annotation: Any = annotation
@@ -151,6 +166,7 @@ class Widget:
         self._post_init()
         self._visible: bool = False
         self._explicitly_hidden: bool = False
+
         if visible is not None:
             self.visible = visible
 
