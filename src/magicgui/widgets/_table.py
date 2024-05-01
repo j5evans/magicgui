@@ -23,6 +23,9 @@ from typing import (
 )
 from warnings import warn
 
+from PyQt5.QtWidgets import QTableView, QTableWidgetItem, QTableWidget, QHeaderView, QApplication
+from PyQt5.QtCore import Qt
+
 from magicgui.application import use_app
 from magicgui.widgets.bases._mixins import _ReadOnlyMixin
 from magicgui.widgets.bases._value_widget import ValueWidget
@@ -46,24 +49,6 @@ SliceNone = slice(None)
 
 
 def normalize_table_data(data: TableData) -> tuple[Collection[Collection], list, list]:
-    """Convert data to data, row headers, column headers.
-
-    Parameters
-    ----------
-    data : dict, dataframe, list, array, tuple, optional
-        Table data (and/or header data), in one of the accepted formats:
-
-        - list or list-of-lists : [column_values] or [[row_vals], ..., [row_vals]]
-        - dict-of-dicts : {column_header -> {row_header -> value}}
-        - dict-of-lists : {column_header -> [column_values]}
-        - list-of-row-records :
-            [{column_headers -> value}, ... , {column_headers -> value}]
-        - split-dict-of-lists :
-            {'data' -> [values], 'index' -> [index], 'columns' -> [columns]}
-        - tuple-of-values : ([values], [row_headers], [column_headers])
-        - dict-of-pandas-series : {column_header -> Series(values)}
-
-    """
     if data is None:
         return [], [], []
     if isinstance(data, dict):
@@ -133,83 +118,6 @@ class TableItemsView(ItemsView[_KT_co, _VT_co], Generic[_KT_co, _VT_co]):
 
 
 class Table(ValueWidget, _ReadOnlyMixin, MutableMapping[TblKey, list]):
-    """A widget to represent columnar or 2D data with headers.
-
-    Tables behave like plain `dicts`, where the keys are column headers and the
-    (list-like) values are column data.
-
-    Parameters
-    ----------
-    value : dict, dataframe, list, array, tuple, optional
-        Table data (and/or header data), in one of the accepted formats:
-
-        - list or list-of-lists : [column_values] or [[row_vals], ..., [row_vals]]
-        - dict-of-dicts : {column_header -> {row_header -> value}}
-        - dict-of-lists : {column_header -> [column_values]}
-        - list-of-row-records :
-            [{column_headers -> value}, ... , {column_headers -> value}]
-        - split-dict-of-lists :
-            {'data' -> [values], 'index' -> [index], 'columns' -> [columns]}
-        - tuple-of-values : ([values], [row_headers], [column_headers])
-        - dict-of-pandas-series : {column_header -> Series(values)}
-
-    index : Collection, optional
-        A sized iterable container of row headers. By default, row headers will be
-        ``tuple(range(len(data)))``.  Values provided here override any implied in
-        ``value``.
-    columns : Collection, optional
-        A sized iterable container of column headers. By default, column headers will be
-        ``tuple(range(len(data[0])))``.  Values provided here override any implied in
-        ``value``.
-    **kwargs
-        Additional kwargs will be passed to the
-        [magicgui.widgets.Widget][magicgui.widgets.Widget] constructor.
-
-    Attributes
-    ----------
-    value : dict
-        Returns a dict with the keys `data`, `index`, and `columns` ... representing the
-        2D (list of lists) tabular data, row headers, and column headers, respectively.
-        If set, will clear and update the table using the new data.
-    data : DataView
-        A `DataView` instance that provides numpy-like indexing (with
-        get/set/delete) onto the 2D data array,  For example `table.data[0,2]` gets the
-        data in the cell of the first row, 3rd column.  Works with numpy slice syntax.
-    column_headers : tuple
-        The current column headers.  Can be set with a new sequence to change
-    row_headers : tuple
-        The current row headers.  Can be set with a new sequence to change
-    shape : tuple of int
-        The shape of the table in `(rows, columns)`.
-    size : int
-        The number of cells in the table.
-
-    Methods
-    -------
-    keys(axis='column')
-        Return a `TableHeadersView`,
-        providing a view on this table's headers. Use `axis='row'` for row headers.
-    items(axis='column')
-        Return a `TableItemsView`,
-        providing a view on this table's items, as 2-tuples of `(header, data)`. Use
-        `axis='row'` for `(row_header, row_data)`
-    clear()
-        Clear all table data and headers.
-    to_dataframe()
-        Returns a pandas dataframe representation of this table. (requires pandas)
-    to_dict(orient='dict')
-        Return one of many different dict-like representations of table and header data.
-        See docstring of :meth:`to_dict` for details.
-
-    Events
-    ------
-    changed
-        Emitted whenever a cell in the table changes. The value will have a
-        dict of information regarding the cell that changed:
-        {'data': x, 'row': int, 'column': int, 'column_header': str, 'row_header': str}
-        CURRENTLY: only emitted on changes in the GUI. not programmatic changes.
-    """
-
     _widget: TableWidgetProtocol
 
     def __new__(
@@ -240,6 +148,48 @@ class Table(ValueWidget, _ReadOnlyMixin, MutableMapping[TblKey, list]):
             "index": index if index is not None else _index,
             "columns": columns if columns is not None else _columns,
         }
+        # self.setDragEnabled(True)
+        # self.setAcceptDrops(True)
+        # self.horizontalHeader().setSectionsMovable(True)
+        # self.horizontalHeader().setDragEnabled(True)
+        # self.horizontalHeader().setDragDropMode(QHeaderView.InternalMove)
+
+    def dragEnterEvent(self, event):
+        event.accept()
+
+    def dragMoveEvent(self, event):
+        event.accept()
+
+    def dropEvent(self, event):
+        if event.source() == self:
+            super().dropEvent(event)
+        else:
+            if event.isAccepted():
+                event.ignore()
+                return
+            if event.source() != self:
+                return
+            if event.dropAction() != Qt.MoveAction:
+                return
+
+            source_index = self.horizontalHeader().logicalIndexAt(event.source().pos())
+            target_index = self.horizontalHeader().logicalIndexAt(event.pos())
+
+            self.swapColumns(source_index, target_index)
+            event.setDropAction(Qt.MoveAction)
+            event.accept()
+
+    def swapColumns(self, source_index, target_index):
+
+        source_header = self.column_headers[source_index]
+        target_header = self.column_headers[target_index]
+        self.column_headers[source_index], self.column_headers[target_index] = target_header, source_header
+
+        for i in range(len(self.data)):
+            source_item = self.takeItem(i, source_index)
+            target_item = self.takeItem(i, target_index)
+            self.setItem(i, source_index, target_item)
+            self.setItem(i, target_index, source_item)
 
     @property
     def value(self) -> dict[TblKey, Collection]:
@@ -248,14 +198,6 @@ class Table(ValueWidget, _ReadOnlyMixin, MutableMapping[TblKey, list]):
 
     @value.setter
     def value(self, value: TableData) -> None:
-        """Set table data from dict, dataframe, list, or array.
-
-        Parameters
-        ----------
-        value : Any
-            Complete table data in one of the forms described above. Partial table
-            updates are not yet supported
-        """
         data, index, columns = normalize_table_data(value)
         _validate_table_data(data, index, columns)
         self.clear()
@@ -274,15 +216,6 @@ class Table(ValueWidget, _ReadOnlyMixin, MutableMapping[TblKey, list]):
         index: int | Sequence[int] | None = None,
         header: Any | Sequence[Any] | None = None,
     ) -> None:
-        """Delete row(s) by index or header.
-
-        Parameters
-        ----------
-        index : int or Sequence[int], optional
-            Index or indices of row(s) to delete.
-        header : Any or Sequence[Any], optional
-            Header or headers of row(s) to delete.
-        """
         indices: set[int] = set()
         if index is not None:
             if isinstance(index, Sequence):
@@ -548,26 +481,6 @@ class Table(ValueWidget, _ReadOnlyMixin, MutableMapping[TblKey, list]):
     # fmt: on
 
     def to_dict(self, orient: str = "dict") -> list | dict:
-        """Convert the Table to a dictionary.
-
-        The type of the key-value pairs can be customized with the parameters
-        (see below).
-
-        Parameters
-        ----------
-        orient : str {'dict', 'list', 'series', 'split', 'records', 'index'}
-            Determines the type of the values of the dictionary.
-
-            - 'dict' (default) : dict like {column -> {index -> value}}
-            - 'list' : dict like {column -> [values]}
-            - 'split' : dict like
-              {'index' -> [index], 'columns' -> [columns], 'data' -> [values]}
-            - 'records' : list like
-              [{column -> value}, ... , {column -> value}]
-            - 'index' : dict like {index -> {column -> value}}
-            - 'series' : dict like {column -> Series(values)}
-
-        """
         orient = orient.lower()
         col_head = self.column_headers
         row_head = self.row_headers
@@ -730,10 +643,6 @@ class DataView:
             )
 
     def to_numpy(self) -> numpy.ndarray:
-        """Return a Numpy representation of the Table.
-
-        Only the values in the Table will be returned, the axes labels will be removed.
-        """
         try:
             import numpy
 
