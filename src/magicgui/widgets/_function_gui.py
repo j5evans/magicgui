@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 else:
     _P = TypeVar("_P")  # easier runtime dependency than ParamSpec
 
-global global_func_name
+global_func_name = None
 
 def _inject_tooltips_from_docstrings(
     docstring: str | None, sig: MagicSignature
