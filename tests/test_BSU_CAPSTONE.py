@@ -158,10 +158,11 @@ def test_configurable_labels():
     label_width = label_widget.width()
     label_height = label_widget.height()
 
-    assert label_width == 100
-    assert label_width == 200
-    assert label_height == 100
-    assert label_height == 200
+    assert label_width >= 100
+    assert label_width <= 200
+
+    assert label_height >= 100
+    assert label_height <= 200
 
 
 
