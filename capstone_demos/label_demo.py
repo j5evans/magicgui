@@ -16,5 +16,5 @@ def my_widget(pick_some=("first")):
     print("you selected", pick_some)
 
 
-my_widget.show(run=True)
+# my_widget.show(run=True)
 example.show(run=True)
